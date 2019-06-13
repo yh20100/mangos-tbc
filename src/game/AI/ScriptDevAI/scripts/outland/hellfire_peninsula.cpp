@@ -1804,6 +1804,8 @@ struct npc_vindicator_sedaiAI : public ScriptedAI, public CombatTimerAI
         if (!m_creature->SelectHostileTarget() || !m_creature->getVictim())
             return;
 
+        DoMeleeAttackIfReady();
+
         ExecuteActions();
     }
 };
