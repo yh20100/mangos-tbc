@@ -1652,8 +1652,8 @@ struct npc_vindicator_sedaiAI : public ScriptedAI, public CombatTimerAI
             m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_ATTACKABLE_1);
             m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_NPC);
 
-            ResetTimer(SEDAI_COMBAT_ACTION_HOLYFIRE, 20000);
-            ResetTimer(SEDAI_COMBAT_ACTION_HAMMER, 25000);
+            ResetTimer(SEDAI_COMBAT_ACTION_HOLYFIRE, 25000);
+            ResetTimer(SEDAI_COMBAT_ACTION_HAMMER, 15000);
 
             if (Creature* felOrc = m_creature->GetMap()->GetCreature(m_felOrcTwo))
                 m_creature->AI()->AttackStart(felOrc);
@@ -1696,7 +1696,6 @@ struct npc_vindicator_sedaiAI : public ScriptedAI, public CombatTimerAI
             NPC_MAGHAR_ESCORT, 216.0346f, 4125.61f, 80.22345f, 3.41032f, TEMPSPAWN_CORPSE_TIMED_DESPAWN, 5000, true))
         {
             m_maghar = maghar->GetObjectGuid();
-            maghar->SetMaxHealth(1);
             maghar->GetMotionMaster()->MovePoint(1, 199.061f, 4142.329f, 75.14999f);
             maghar->GetMotionMaster()->MoveIdle();
         }
@@ -1727,7 +1726,7 @@ struct npc_vindicator_sedaiAI : public ScriptedAI, public CombatTimerAI
                     if (DoCastSpellIfCan(m_creature->getVictim(), SPELL_HAMMER_OF_JUSTICE) == CAST_OK)
                     {
                         SetActionReadyStatus(i, false);
-                        ResetTimer(i, 15000);
+                        //ResetTimer(i, 15000);
                         return;
                     }
                     continue;
@@ -1735,7 +1734,7 @@ struct npc_vindicator_sedaiAI : public ScriptedAI, public CombatTimerAI
                     if (DoCastSpellIfCan(m_creature->getVictim(), SPELL_HOLY_FIRE) == CAST_OK)
                     {
                         SetActionReadyStatus(i, false);
-                        ResetTimer(i, 30000);
+                        //ResetTimer(i, 30000);
                         return;
                     }
                     continue;
