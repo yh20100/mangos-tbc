@@ -1776,7 +1776,7 @@ struct npc_vindicator_sedaiAI : public ScriptedAI, public CombatTimerAI
         }
     }
 
-    void JustDied(Unit* /*pKiller*/) override
+    void JustDied(Unit* /*killer*/) override
     {
         if (Creature* krun = m_creature->GetMap()->GetCreature(m_krun))
             m_creature->SetFacingToObject(krun);
