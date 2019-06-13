@@ -1727,7 +1727,7 @@ struct npc_vindicator_sedaiAI : public ScriptedAI, public CombatTimerAI
                     if (DoCastSpellIfCan(m_creature->getVictim(), SPELL_HAMMER_OF_JUSTICE) == CAST_OK)
                     {
                         SetActionReadyStatus(i, false);
-                        //ResetTimer(i, 15000);
+                        ResetTimer(i, 15000);
                         return;
                     }
                     continue;
@@ -1735,7 +1735,7 @@ struct npc_vindicator_sedaiAI : public ScriptedAI, public CombatTimerAI
                     if (DoCastSpellIfCan(m_creature->getVictim(), SPELL_HOLY_FIRE) == CAST_OK)
                     {
                         SetActionReadyStatus(i, false);
-                        //ResetTimer(i, 30000);
+                        ResetTimer(i, 25000);
                         return;
                     }
                     continue;
