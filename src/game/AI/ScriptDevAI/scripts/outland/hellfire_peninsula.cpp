@@ -1482,9 +1482,11 @@ UnitAI* GetAI_nazgrel(Creature* pCreature)
     return new npc_nazgrelAI(pCreature);
 }
 
-/*######
+/*
+#############
 ## npc_vindicator_sedai
-######*/
+#############
+*/
 
 enum
 {
@@ -1505,7 +1507,7 @@ enum
     SAY_EVENT_KRUN          = -1001178,
 
     SPELL_EXECUTE_SEDAI     = 30462,
-    SPELL_HOLY_FIRE         = 29522,
+    SPELL_HOLY_FIRE         = 17141,
     SPELL_HAMMER_OF_JUSTICE = 13005,
     SPELL_KICK              = 30460
 };
@@ -1525,7 +1527,8 @@ enum SedaiActions : uint32
     SEDAI_ACTION_FELORC_SPAWN_ATTACK,
     SEDAI_ACTION_QUEST_COMPLETE,
     SEDAI_ACTION_SEDAI_MOVE_2,
-    SEDAI_ACTION_SEDAI_START_ATTACK
+    SEDAI_ACTION_SEDAI_START_ATTACK,
+    SEDAI_ACTION_RALLY_ESCORT
 };
 
 struct npc_vindicator_sedaiAI : public ScriptedAI, public CombatTimerAI
@@ -1584,29 +1587,41 @@ struct npc_vindicator_sedaiAI : public ScriptedAI, public CombatTimerAI
         }, true);
         //
         AddCustomAction(SEDAI_ACTION_FELORC_SPAWN_ATTACK, 3000, [&]() {
-            if (Creature* orc = m_creature->SummonCreature(NPC_FEL_ORC, 258.168854f, 4109.307617f, 91.639290f, 2.644194f, TEMPSPAWN_CORPSE_TIMED_DESPAWN, 4000, true))
+            if (Creature* orc = m_creature->SummonCreature(
+                NPC_FEL_ORC, 258.168854f, 4109.307617f, 91.639290f, 2.644194f, TEMPSPAWN_CORPSE_TIMED_DESPAWN, 4000, true))
             {
                 m_felOrc = orc->GetObjectGuid();
                 orc->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE);
+                orc->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_ATTACKABLE_1);
                 orc->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_NPC);
                 orc->AI()->SetReactState(REACT_AGGRESSIVE);
+
                 if (Creature* maghar = m_creature->GetMap()->GetCreature(m_maghar))
                 {
+                    maghar->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE);
+                    maghar->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_ATTACKABLE_1);
+                    maghar->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_NPC);
+
                     orc->AI()->AttackStart(maghar);
-                    maghar->AI()->SetReactState(REACT_AGGRESSIVE);
                     maghar->AI()->AttackStart(orc);
                 }
             }
-            if (Creature* orc = m_creature->SummonCreature(NPC_FEL_ORC, 256.429932f, 4105.590820f, 90.982086f, 2.734515f, TEMPSPAWN_CORPSE_TIMED_DESPAWN, 4000, true))
+            if (Creature* orc = m_creature->SummonCreature(
+                NPC_FEL_ORC, 256.429932f, 4105.590820f, 90.982086f, 2.734515f, TEMPSPAWN_CORPSE_TIMED_DESPAWN, 4000, true))
             {
                 m_felOrcTwo = orc->GetObjectGuid();
                 orc->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE);
+                orc->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_ATTACKABLE_1);
                 orc->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_NPC);
                 orc->AI()->SetReactState(REACT_AGGRESSIVE);
+
                 if (Creature* maghar = m_creature->GetMap()->GetCreature(m_maghar))
                 {
+                    maghar->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE);
+                    maghar->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_ATTACKABLE_1);
+                    maghar->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_NPC);
+
                     orc->AI()->AttackStart(maghar);
-                    maghar->AI()->SetReactState(REACT_AGGRESSIVE);
                     maghar->AI()->AttackStart(orc);
                 }
             }
@@ -1634,13 +1649,31 @@ struct npc_vindicator_sedaiAI : public ScriptedAI, public CombatTimerAI
         //
         AddCustomAction(SEDAI_ACTION_SEDAI_START_ATTACK, 1000, [&]() {
             m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE);
+            m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_ATTACKABLE_1);
             m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_NPC);
 
             ResetTimer(SEDAI_COMBAT_ACTION_HOLYFIRE, 20000);
             ResetTimer(SEDAI_COMBAT_ACTION_HAMMER, 25000);
 
-            if (Creature* felOrc = m_creature->GetMap()->GetCreature(m_felOrc))
+            if (Creature* felOrc = m_creature->GetMap()->GetCreature(m_felOrcTwo))
                 m_creature->AI()->AttackStart(felOrc);
+
+            ResetTimer(SEDAI_ACTION_RALLY_ESCORT, 6000);
+        }, true);
+        //
+        AddCustomAction(SEDAI_ACTION_RALLY_ESCORT, 6000, [&]() {
+            if (Creature* maghar = m_creature->GetMap()->GetCreature(m_magharTwo))
+            {
+                maghar->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE);
+                maghar->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_ATTACKABLE_1);
+                maghar->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_NPC);
+
+                if (Creature* felOrc = m_creature->GetMap()->GetCreature(m_felOrcTwo))
+                    maghar->AI()->AttackStart(felOrc);
+
+                if (Creature* felOrc = m_creature->GetMap()->GetCreature(m_felOrc))
+                    felOrc->FixateTarget(m_creature);
+            }
         }, true);
     }
 
@@ -1659,20 +1692,18 @@ struct npc_vindicator_sedaiAI : public ScriptedAI, public CombatTimerAI
 
     void JustRespawned() override
     {
-        if (Creature* maghar = m_creature->SummonCreature(NPC_MAGHAR_ESCORT, 216.0346f, 4125.61f, 80.22345f, 3.41032f, TEMPSPAWN_CORPSE_TIMED_DESPAWN, 5000, true))
+        if (Creature* maghar = m_creature->SummonCreature(
+            NPC_MAGHAR_ESCORT, 216.0346f, 4125.61f, 80.22345f, 3.41032f, TEMPSPAWN_CORPSE_TIMED_DESPAWN, 5000, true))
         {
             m_maghar = maghar->GetObjectGuid();
-            maghar->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE);
-            maghar->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_NPC);
             maghar->SetMaxHealth(1);
             maghar->GetMotionMaster()->MovePoint(1, 199.061f, 4142.329f, 75.14999f);
             maghar->GetMotionMaster()->MoveIdle();
         }
-        if (Creature* maghar = m_creature->SummonCreature(NPC_MAGHAR_ESCORT, 214.1331f, 4123.221f, 79.6478f, 2.233855f, TEMPSPAWN_CORPSE_TIMED_DESPAWN, 5000, true))
+        if (Creature* maghar = m_creature->SummonCreature(
+            NPC_MAGHAR_ESCORT, 214.1331f, 4123.221f, 79.6478f, 2.233855f, TEMPSPAWN_CORPSE_TIMED_DESPAWN, 5000, true))
         {
             m_magharTwo = maghar->GetObjectGuid();
-            maghar->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE);
-            maghar->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_NPC);
             maghar->GetMotionMaster()->MovePoint(1, 196.8983f, 4140.25f, 74.4968f);
             maghar->GetMotionMaster()->MoveIdle();
         }
@@ -1726,15 +1757,18 @@ struct npc_vindicator_sedaiAI : public ScriptedAI, public CombatTimerAI
             {
                 if (Creature* felOrc = m_creature->GetMap()->GetCreature(m_felOrc))
                     m_creature->SetFacingToObject(felOrc);
+
                 DoScriptText(SAY_EVENT_SEDAI_3, m_creature);
                 ResetTimer(SEDAI_ACTION_SEDAI_START_ATTACK, 1000);
                 break;
             }
             case 3:
             {
-                if (Creature* krun = m_creature->SummonCreature(NPC_KRUN, 225.445526f, 4120.721191f, 82.345039f, 2.443936f, TEMPSPAWN_TIMED_DESPAWN, 60000, true))
+                if (Creature* krun = m_creature->SummonCreature(
+                    NPC_KRUN, 225.445526f, 4120.721191f, 82.345039f, 2.443936f, TEMPSPAWN_TIMED_DESPAWN, 60000, true))
                 {
                     m_krun = krun->GetObjectGuid();
+                    krun->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_NPC);
                     krun->SetWalk(false, true);
                     krun->GetMotionMaster()->MovePoint(1, 202.904419f, 4138.468262f, 76.176216f);
                 }
@@ -1742,7 +1776,6 @@ struct npc_vindicator_sedaiAI : public ScriptedAI, public CombatTimerAI
                 m_creature->GetMotionMaster()->MoveIdle();
                 m_creature->SetSheath(SHEATH_STATE_UNARMED);
                 m_creature->SetStandState(UNIT_STAND_STATE_KNEEL);
-                //m_creature->HandleEmoteState(EMOTE_STATE_KNEEL); // doesnt work
                 break;
             }
         }
@@ -1759,8 +1792,8 @@ struct npc_vindicator_sedaiAI : public ScriptedAI, public CombatTimerAI
 
     void JustReachedHome() override
     {
-        m_creature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE);
-        m_creature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_NPC);
+        m_creature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PLAYER);
+        m_creature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PET_IN_COMBAT);
         m_creature->GetMotionMaster()->MovePoint(3, m_positionCorpse[0], m_positionCorpse[1], m_positionCorpse[2]);
     }
 
@@ -1780,9 +1813,11 @@ UnitAI* GetAI_npc_vindicator_sedai(Creature* pCreature)
     return new npc_vindicator_sedaiAI(pCreature);
 }
 
-/*######
+/*
+##############
 ## npc_krun
-######*/
+##############
+*/
 
 struct npc_krunAI : public ScriptedAI
 {
@@ -1820,27 +1855,25 @@ struct npc_krunAI : public ScriptedAI
             {
                 switch (m_uiStage)
                 {
-                case 0:
-                    DoScriptText(SAY_EVENT_KRUN, m_creature);
-                    DoCastSpellIfCan(m_creature, SPELL_EXECUTE_SEDAI);
-                    m_uiTimer = 2000;
-                    m_uiStage++;
-                    break;
-                case 1:
-                    m_creature->HandleEmote(EMOTE_ONESHOT_LAUGH);
-                    m_uiTimer = 2000;
-                    m_uiStage++;
-                    break;
-                case 2:
-                    if (TemporarySpawn* summon = (TemporarySpawn*)m_creature)
-                        summon->UnSummon();
-                    break;
+                    case 0:
+                        DoScriptText(SAY_EVENT_KRUN, m_creature);
+                        DoCastSpellIfCan(m_creature, SPELL_EXECUTE_SEDAI);
+                        m_uiTimer = 2000;
+                        m_uiStage++;
+                        break;
+                    case 1:
+                        m_creature->HandleEmote(EMOTE_ONESHOT_LAUGH);
+                        m_uiTimer = 2000;
+                        m_uiStage++;
+                        break;
+                    case 2:
+                        if (TemporarySpawn* summon = (TemporarySpawn*)m_creature)
+                            summon->UnSummon();
+                        break;
                 }
             }
             else
-            {
                 m_uiTimer -= uiDiff;
-            }
         }
     }
 };
@@ -1850,9 +1883,11 @@ UnitAI* GetAI_npc_krun(Creature* pCreature)
     return new npc_krunAI(pCreature);
 }
 
-/*######
+/*
+###############
 ## npc_laughing_skull
-######*/
+###############
+*/
 
 struct npc_laughing_skullAI : public ScriptedAI
 {
@@ -1872,6 +1907,41 @@ struct npc_laughing_skullAI : public ScriptedAI
 UnitAI* GetAI_npc_laughing_skull(Creature* pCreature)
 {
     return new npc_laughing_skullAI(pCreature);
+}
+
+/*
+###############
+## npc_maghar_escort
+###############
+*/
+
+struct npc_maghar_escortAI : public ScriptedAI
+{
+    npc_maghar_escortAI(Creature* pCreature) : ScriptedAI(pCreature) { Reset(); }
+
+    void Reset() override
+    {
+
+    }
+
+    void EnterEvadeMode() override
+    {
+        if (!GetClosestCreatureWithEntry(m_creature, NPC_FEL_ORC, 60.0f))
+        {
+            if (TemporarySpawn* summon = (TemporarySpawn*)m_creature)
+                summon->UnSummon();
+        }
+    }
+
+    void JustReachedHome() override
+    {
+        m_creature->GetMotionMaster()->MoveIdle();
+    }
+};
+
+UnitAI* GetAI_npc_maghar_escort(Creature* pCreature)
+{
+    return new npc_maghar_escortAI(pCreature);
 }
 
 bool ProcessEventId_sedai_vision(uint32 uiEventId, Object* pSource, Object* pTarget, bool bIsStart)
@@ -1967,5 +2037,10 @@ void AddSC_hellfire_peninsula()
     pNewScript = new Script;
     pNewScript->Name = "npc_laughing_skull";
     pNewScript->GetAI = &GetAI_npc_laughing_skull;
+    pNewScript->RegisterSelf();
+
+    pNewScript = new Script;
+    pNewScript->Name = "npc_maghar_escort";
+    pNewScript->GetAI = &GetAI_npc_maghar_escort;
     pNewScript->RegisterSelf();
 }
