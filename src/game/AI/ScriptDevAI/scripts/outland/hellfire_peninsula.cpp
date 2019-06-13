@@ -1821,62 +1821,57 @@ UnitAI* GetAI_npc_vindicator_sedai(Creature* pCreature)
 ##############
 */
 
-struct npc_krunAI : public ScriptedAI
+enum KrunActions : uint32
 {
-    npc_krunAI(Creature* pCreature) : ScriptedAI(pCreature) { Reset(); }
+    KRUN_ACTION_EXECUTE_SEDAI,
+    KRUN_ACTION_LAUGH,
+    KRUN_ACTION_DESPAWN
+};
 
-    uint32 m_uiTimer;
-    uint8 m_uiStage;
+struct npc_krunAI : public ScriptedAI, public TimerManager
+{
+    npc_krunAI(Creature* pCreature) : ScriptedAI(pCreature)
+    {
+        AddCustomAction(KRUN_ACTION_EXECUTE_SEDAI, 1000, [&]() {
+            DoScriptText(SAY_EVENT_KRUN, m_creature);
+            DoCastSpellIfCan(m_creature, SPELL_EXECUTE_SEDAI);
+            ResetTimer(KRUN_ACTION_LAUGH, 2000);
+        }, true);
+
+        AddCustomAction(KRUN_ACTION_LAUGH, 2000, [&]() {
+            m_creature->HandleEmote(EMOTE_ONESHOT_LAUGH);
+            ResetTimer(KRUN_ACTION_DESPAWN, 2000);
+        }, true);
+
+        AddCustomAction(KRUN_ACTION_DESPAWN, 2000, [&]() {
+            if (TemporarySpawn* summon = (TemporarySpawn*)m_creature)
+                summon->UnSummon();
+        }, true);
+    }
 
     void Reset() override
     {
-        m_uiTimer = 0;
-        m_uiStage = 0;
+        
     }
 
-    void MovementInform(uint32 uiMovementType, uint32 uiData) override
+    void MovementInform(uint32 movementType, uint32 data) override
     {
-        switch (uiData)
+        switch (data)
         {
-        case 1:
-            m_creature->SetWalk(true, true);
-            m_creature->GetMotionMaster()->MovePoint(2, 193.358658f, 4149.128906f, 73.768143f);
-            break;
-        case 2:
-            m_uiTimer = 1000;
-            m_creature->GetMotionMaster()->MoveIdle();
-            break;
+            case 1:
+                m_creature->SetWalk(true, true);
+                m_creature->GetMotionMaster()->MovePoint(2, 193.358658f, 4149.128906f, 73.768143f);
+                break;
+            case 2:
+                m_creature->GetMotionMaster()->MoveIdle();
+                ResetTimer(KRUN_ACTION_EXECUTE_SEDAI, 1000);
+                break;
         }
     }
 
-    void UpdateAI(const uint32 uiDiff) override
+    void UpdateAI(const uint32 diff) override
     {
-        if (m_uiTimer)
-        {
-            if (m_uiTimer <= uiDiff)
-            {
-                switch (m_uiStage)
-                {
-                    case 0:
-                        DoScriptText(SAY_EVENT_KRUN, m_creature);
-                        DoCastSpellIfCan(m_creature, SPELL_EXECUTE_SEDAI);
-                        m_uiTimer = 2000;
-                        m_uiStage++;
-                        break;
-                    case 1:
-                        m_creature->HandleEmote(EMOTE_ONESHOT_LAUGH);
-                        m_uiTimer = 2000;
-                        m_uiStage++;
-                        break;
-                    case 2:
-                        if (TemporarySpawn* summon = (TemporarySpawn*)m_creature)
-                            summon->UnSummon();
-                        break;
-                }
-            }
-            else
-                m_uiTimer -= uiDiff;
-        }
+        UpdateTimers(diff);
     }
 };
 
@@ -1895,10 +1890,7 @@ struct npc_laughing_skullAI : public ScriptedAI
 {
     npc_laughing_skullAI(Creature* pCreature) : ScriptedAI(pCreature) { Reset(); }
 
-    void Reset() override
-    {
-
-    }
+    void Reset() override {}
 
     void JustReachedHome() override
     {
