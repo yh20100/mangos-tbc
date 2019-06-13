@@ -1533,7 +1533,7 @@ enum SedaiActions : uint32
 
 struct npc_vindicator_sedaiAI : public ScriptedAI, public CombatTimerAI
 {
-    npc_vindicator_sedaiAI(Creature* pCreature) : ScriptedAI(pCreature), CombatTimerAI(SEDAI_COMBAT_ACTION_MAX)
+    npc_vindicator_sedaiAI(Creature* creature) : ScriptedAI(creature), CombatTimerAI(SEDAI_COMBAT_ACTION_MAX)
     {
         m_creature->SetActiveObjectState(true);
 
@@ -1810,9 +1810,9 @@ struct npc_vindicator_sedaiAI : public ScriptedAI, public CombatTimerAI
     }
 };
 
-UnitAI* GetAI_npc_vindicator_sedai(Creature* pCreature)
+UnitAI* GetAI_npc_vindicator_sedai(Creature* creature)
 {
-    return new npc_vindicator_sedaiAI(pCreature);
+    return new npc_vindicator_sedaiAI(creature);
 }
 
 /*
@@ -1830,7 +1830,7 @@ enum KrunActions : uint32
 
 struct npc_krunAI : public ScriptedAI, public TimerManager
 {
-    npc_krunAI(Creature* pCreature) : ScriptedAI(pCreature)
+    npc_krunAI(Creature* creature) : ScriptedAI(creature)
     {
         AddCustomAction(KRUN_ACTION_EXECUTE_SEDAI, 1000, [&]() {
             DoScriptText(SAY_EVENT_KRUN, m_creature);
@@ -1875,9 +1875,9 @@ struct npc_krunAI : public ScriptedAI, public TimerManager
     }
 };
 
-UnitAI* GetAI_npc_krun(Creature* pCreature)
+UnitAI* GetAI_npc_krun(Creature* creature)
 {
-    return new npc_krunAI(pCreature);
+    return new npc_krunAI(creature);
 }
 
 /*
@@ -1888,7 +1888,7 @@ UnitAI* GetAI_npc_krun(Creature* pCreature)
 
 struct npc_laughing_skullAI : public ScriptedAI
 {
-    npc_laughing_skullAI(Creature* pCreature) : ScriptedAI(pCreature) { Reset(); }
+    npc_laughing_skullAI(Creature* creature) : ScriptedAI(creature) { Reset(); }
 
     void Reset() override {}
 
@@ -1898,9 +1898,9 @@ struct npc_laughing_skullAI : public ScriptedAI
     }
 };
 
-UnitAI* GetAI_npc_laughing_skull(Creature* pCreature)
+UnitAI* GetAI_npc_laughing_skull(Creature* creature)
 {
-    return new npc_laughing_skullAI(pCreature);
+    return new npc_laughing_skullAI(creature);
 }
 
 /*
@@ -1911,7 +1911,7 @@ UnitAI* GetAI_npc_laughing_skull(Creature* pCreature)
 
 struct npc_maghar_escortAI : public ScriptedAI
 {
-    npc_maghar_escortAI(Creature* pCreature) : ScriptedAI(pCreature) { Reset(); }
+    npc_maghar_escortAI(Creature* creature) : ScriptedAI(creature) { Reset(); }
 
     void Reset() override
     {
@@ -1933,18 +1933,18 @@ struct npc_maghar_escortAI : public ScriptedAI
     }
 };
 
-UnitAI* GetAI_npc_maghar_escort(Creature* pCreature)
+UnitAI* GetAI_npc_maghar_escort(Creature* creature)
 {
-    return new npc_maghar_escortAI(pCreature);
+    return new npc_maghar_escortAI(creature);
 }
 
-bool ProcessEventId_sedai_vision(uint32 uiEventId, Object* pSource, Object* pTarget, bool bIsStart)
+bool ProcessEventId_sedai_vision(uint32 eventId, Object* source, Object* target, bool isStart)
 {
-    if (Creature* sedai = GetClosestCreatureWithEntry((WorldObject*)pSource, NPC_SEDAI, 100.0f))
+    if (Creature* sedai = GetClosestCreatureWithEntry((WorldObject*)source, NPC_SEDAI, 100.0f))
         return false;
     else
     {
-        Player* player = (Player*)pSource;
+        Player* player = (Player*)source;
         sedai = player->SummonCreature(17404, 211.1362f, 4126.989f, 78.81913f, 2.281034f, TEMPSPAWN_CORPSE_TIMED_DESPAWN, 5000, true);
         return true;
     }
