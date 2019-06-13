@@ -1518,8 +1518,7 @@ enum SedaiActions : uint32
     SEDAI_COMBAT_ACTION_HAMMER,
     SEDAI_COMBAT_ACTION_MAX,
 
-    SEDAI_ACTION_START_QUEST_FLAGS,
-    SEDAI_ACTION_START_QUEST_MOVEMENT,
+    SEDAI_ACTION_FACE_ESCORT,
     SEDAI_ACTION_ESCORT_KICK,
     SEDAI_ACTION_ESCORT_SAY,
     SEDAI_ACTION_SEDAI_KNEEL,
@@ -1540,12 +1539,8 @@ struct npc_vindicator_sedaiAI : public ScriptedAI, public CombatTimerAI
         AddCombatAction(SEDAI_COMBAT_ACTION_HOLYFIRE, 0);
         AddCombatAction(SEDAI_COMBAT_ACTION_HAMMER, 0);
 
-        // 
-        AddCustomAction(SEDAI_ACTION_START_QUEST_FLAGS, 0, [&]() {
-            ResetTimer(SEDAI_ACTION_START_QUEST_MOVEMENT, 0);
-        }, true);
         //
-        AddCustomAction(SEDAI_ACTION_START_QUEST_MOVEMENT, 1000, [&]() {
+        AddCustomAction(SEDAI_ACTION_FACE_ESCORT, 1000, [&]() {
             if (Creature* maghar = m_creature->GetMap()->GetCreature(m_maghar))
                 m_creature->SetFacingToObject(maghar);
 
@@ -1750,7 +1745,7 @@ struct npc_vindicator_sedaiAI : public ScriptedAI, public CombatTimerAI
             case 1:
             {
                 m_creature->GetMotionMaster()->MoveIdle();
-                ResetTimer(SEDAI_ACTION_START_QUEST_FLAGS, 0);
+                ResetTimer(SEDAI_ACTION_FACE_ESCORT, 0);
                 break;
             }
             case 2:
