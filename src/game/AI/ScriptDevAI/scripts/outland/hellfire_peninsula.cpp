@@ -1696,6 +1696,7 @@ struct npc_vindicator_sedaiAI : public ScriptedAI, public CombatTimerAI
             NPC_MAGHAR_ESCORT, 216.0346f, 4125.61f, 80.22345f, 3.41032f, TEMPSPAWN_CORPSE_TIMED_DESPAWN, 5000, true))
         {
             m_maghar = maghar->GetObjectGuid();
+            maghar->SetMaxHealth(1);
             maghar->GetMotionMaster()->MovePoint(1, 199.061f, 4142.329f, 75.14999f);
             maghar->GetMotionMaster()->MoveIdle();
         }
