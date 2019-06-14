@@ -1539,14 +1539,13 @@ struct npc_vindicator_sedaiAI : public ScriptedAI, public CombatTimerAI
         AddCombatAction(SEDAI_COMBAT_ACTION_HOLYFIRE, 0);
         AddCombatAction(SEDAI_COMBAT_ACTION_HAMMER, 0);
 
-        //
         AddCustomAction(SEDAI_ACTION_FACE_ESCORT, 1000, [&]() {
             if (Creature* maghar = m_creature->GetMap()->GetCreature(m_maghar))
                 m_creature->SetFacingToObject(maghar);
 
             ResetTimer(SEDAI_ACTION_ESCORT_KICK, 2000);
         }, true);
-        //
+        
         AddCustomAction(SEDAI_ACTION_ESCORT_KICK, 2000, [&]() {
             if (Creature* corpse = GetClosestCreatureWithEntry(m_creature, NPC_SEDAI_CORPSE, 10.0f, false))
             {
@@ -1559,19 +1558,19 @@ struct npc_vindicator_sedaiAI : public ScriptedAI, public CombatTimerAI
             
             ResetTimer(SEDAI_ACTION_ESCORT_SAY, 2000);
         }, true);
-        //
+        
         AddCustomAction(SEDAI_ACTION_ESCORT_SAY, 2000, [&]() {
             if (Creature* maghar = m_creature->GetMap()->GetCreature(m_magharTwo))
                 DoScriptText(SAY_EVENT_MAGHAR_ESCORT, maghar);
             ResetTimer(SEDAI_ACTION_SEDAI_KNEEL, 1000);
         }, true);
-        //
+        
         AddCustomAction(SEDAI_ACTION_SEDAI_KNEEL, 1000, [&]() {
             m_creature->SetSheath(SHEATH_STATE_UNARMED);
             m_creature->SetStandState(UNIT_STAND_STATE_KNEEL);
             ResetTimer(SEDAI_ACTION_ESCORTS_MOVE_1, 1000);
         }, true);
-        //
+        
         AddCustomAction(SEDAI_ACTION_ESCORTS_MOVE_1, 1000, [&]() {
             Map* map = m_creature->GetMap();
             if (Creature* maghar = map->GetCreature(m_maghar))
@@ -1580,7 +1579,7 @@ struct npc_vindicator_sedaiAI : public ScriptedAI, public CombatTimerAI
                 maghar->GetMotionMaster()->MovePoint(2, 219.5054f, 4125.231f, 81.05459f);
             ResetTimer(SEDAI_ACTION_FELORC_SPAWN_ATTACK, 3000);
         }, true);
-        //
+        
         AddCustomAction(SEDAI_ACTION_FELORC_SPAWN_ATTACK, 3000, [&]() {
             if (Creature* orc = m_creature->SummonCreature(
                 NPC_FEL_ORC, 258.168854f, 4109.307617f, 91.639290f, 2.644194f, TEMPSPAWN_CORPSE_TIMED_DESPAWN, 4000, true))
@@ -1622,7 +1621,7 @@ struct npc_vindicator_sedaiAI : public ScriptedAI, public CombatTimerAI
             }
             ResetTimer(SEDAI_ACTION_QUEST_COMPLETE, 1000);
         }, true);
-        //
+        
         AddCustomAction(SEDAI_ACTION_QUEST_COMPLETE, 1000, [&]() {
             if (Player* player = (Player*)m_creature->GetMap()->GetUnit(m_creature->GetSpawnerGuid()))
             {
@@ -1635,13 +1634,13 @@ struct npc_vindicator_sedaiAI : public ScriptedAI, public CombatTimerAI
                 ResetTimer(SEDAI_ACTION_SEDAI_MOVE_2, 6000);
             }
         }, true);
-        // 
+        
         AddCustomAction(SEDAI_ACTION_SEDAI_MOVE_2, 6000, [&]() {
             m_creature->SetStandState(UNIT_STAND_STATE_STAND);
             DoScriptText(SAY_EVENT_SEDAI_2, m_creature);
             m_creature->GetMotionMaster()->MovePoint(2, 202.1543f, 4138.074f, 76.15149f);
         }, true);
-        //
+        
         AddCustomAction(SEDAI_ACTION_SEDAI_START_ATTACK, 1000, [&]() {
             m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE);
             m_creature->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_ATTACKABLE_1);
@@ -1655,7 +1654,7 @@ struct npc_vindicator_sedaiAI : public ScriptedAI, public CombatTimerAI
 
             ResetTimer(SEDAI_ACTION_RALLY_ESCORT, 6000);
         }, true);
-        //
+        
         AddCustomAction(SEDAI_ACTION_RALLY_ESCORT, 6000, [&]() {
             if (Creature* maghar = m_creature->GetMap()->GetCreature(m_magharTwo))
             {
