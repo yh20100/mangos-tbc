@@ -88,6 +88,42 @@ struct AreaTrigger
     }
 };
 
+struct BroadcastText
+{
+    uint32 Id;
+    std::vector<std::string> maleText;
+    std::vector<std::string> femaleText;
+    Language languageId;
+    // uint32 conditionId;
+    // uint32 emotesId;
+    // uint32 flags;
+    // uint32 soundId1;
+    // uint32 soundId2;
+    uint32 emoteIds[3];
+    uint32 emoteDelays[3];
+    // uint32 verifiedBuild;
+
+    std::string const& GetText(int32 locIdx, uint8 gender = GENDER_MALE, bool forceGender = false) const
+    {
+        if ((gender == GENDER_FEMALE || gender == GENDER_NONE) && (forceGender || !femaleText[DEFAULT_LOCALE].empty()))
+        {
+            if (locIdx >= 0 && femaleText.size() > size_t(locIdx) && !femaleText[locIdx].empty())
+                return femaleText[locIdx];
+            return femaleText[DEFAULT_LOCALE];
+        }
+        // else if (gender == GENDER_MALE)
+        {
+            if (locIdx >= 0 && maleText.size() > size_t(locIdx) && !maleText[locIdx].empty())
+                return maleText[locIdx];
+            return maleText[DEFAULT_LOCALE];
+        }
+    }
+
+    BroadcastText() : maleText(DEFAULT_LOCALE + 1), femaleText(DEFAULT_LOCALE + 1) {}
+};
+
+typedef std::map<uint32, BroadcastText> BroadcastTextMap;
+
 typedef std::map < uint32/*player guid*/, uint32/*instance*/ > CellCorpseSet;
 struct CellObjectGuids
 {
@@ -111,13 +147,14 @@ static_assert(MAX_DB_SCRIPT_STRING_ID < INT_MAX, "Must scope with int32 range");
 
 struct MangosStringLocale
 {
-    MangosStringLocale() : SoundId(0), Type(0), LanguageId(LANG_UNIVERSAL), Emote(0) { }
+    MangosStringLocale() : SoundId(0), Type(0), LanguageId(LANG_UNIVERSAL), Emote(0), broadcastText(nullptr) { }
 
     std::vector<std::string> Content;                       // 0 -> default, i -> i-1 locale index
     uint32 SoundId;
     uint8  Type;
     Language LanguageId;
     uint32 Emote;
+    BroadcastText const* broadcastText;
 };
 
 typedef std::unordered_map<uint32 /*guid*/, CreatureData> CreatureDataMap;
@@ -252,6 +289,7 @@ struct GossipMenuItems
     uint32          id;
     uint8           option_icon;
     std::string     option_text;
+    uint32          option_broadcast_text;
     uint32          option_id;
     uint32          npc_option_npcflag;
     int32           action_menu_id;
@@ -260,6 +298,7 @@ struct GossipMenuItems
     bool            box_coded;
     uint32          box_money;
     std::string     box_text;
+    uint32          box_broadcast_text;
     uint16          conditionId;
 };
 
@@ -307,8 +346,21 @@ struct GraveYardData
     uint32 safeLocId;
     Team team;
 };
-typedef std::multimap < uint32 /*zoneId*/, GraveYardData > GraveYardMap;
+#define GRAVEYARD_AREALINK  0
+#define GRAVEYARD_MAPLINK   1
+typedef std::multimap < uint32 /*locId*/, GraveYardData > GraveYardMap;
 typedef std::pair<GraveYardMap::const_iterator, GraveYardMap::const_iterator> GraveYardMapBounds;
+
+struct WorldSafeLocsEntry
+{
+    uint32    ID;
+    uint32    map_id;
+    float     x;
+    float     y;
+    float     z;
+    float     o;
+    char*     name;
+};
 
 struct QuestgiverGreeting
 {
@@ -612,17 +664,38 @@ class ObjectMgr
         QuestgiverGreeting const* GetQuestgiverGreetingData(uint32 entry, uint32 type) const;
         TrainerGreeting const* GetTrainerGreetingData(uint32 entry) const;
 
-        WorldSafeLocsEntry const* GetClosestGraveYard(float x, float y, float z, uint32 MapId, Team team);
-        bool AddGraveYardLink(uint32 id, uint32 zoneId, Team team, bool inDB = true);
-        void SetGraveYardLinkTeam(uint32 id, uint32 zoneId, Team team);
+        WorldSafeLocsEntry const* GetClosestGraveYard(float x, float y, float z, uint32 mapId, Team team) const;
+        bool AddGraveYardLink(uint32 id, uint32 locId, uint32 linkKind, Team team, bool inDB = true);
+        void SetGraveYardLinkTeam(uint32 id, uint32 linkKey, Team team);
         void LoadGraveyardZones();
         GraveYardData const* FindGraveYardData(uint32 id, uint32 zoneId) const;
+        void LoadWorldSafeLocs() const;
+        static uint32 GraveyardLinkKey(uint32 locId, uint32 linkKind);
 
         AreaTrigger const* GetAreaTrigger(uint32 trigger) const
         {
             AreaTriggerMap::const_iterator itr = mAreaTriggers.find(trigger);
             if (itr != mAreaTriggers.end())
                 return &itr->second;
+            return nullptr;
+        }
+
+        uint32 GetRandomEntry(uint32 guidLow) const
+        {
+            auto itr = mCreatureSpawnEntryMap.find(guidLow);
+            if (itr != mCreatureSpawnEntryMap.end())
+            {
+                auto& spawnList = (*itr).second;
+                return spawnList[irand(0, spawnList.size() - 1)];
+            }
+            return 0;
+        }
+
+        std::vector<uint32> const* GetAllRandomEntries(uint32 guidLow) const
+        {
+            auto itr = mCreatureSpawnEntryMap.find(guidLow);
+            if (itr != mCreatureSpawnEntryMap.end())
+                return &(*itr).second;
             return nullptr;
         }
 
@@ -780,6 +853,9 @@ class ObjectMgr
 
         void LoadFactions();
 
+        void LoadBroadcastText();
+        void LoadBroadcastTextLocales();
+
         /// @param _map Map* of the map for which to load active entities. If nullptr active entities on continents are loaded
         void LoadActiveEntities(Map* _map);
 
@@ -787,6 +863,7 @@ class ObjectMgr
         uint32 GetBaseXP(uint32 level) const;
         uint32 GetXPForLevel(uint32 level) const;
         uint32 GetXPForPetLevel(uint32 level) const { return GetXPForLevel(level) / 4; }
+        uint32 GetMaxLevelForExpansion(uint32 expansion) const;
 
         int32 GetFishingBaseSkillLevel(uint32 entry) const
         {
@@ -912,6 +989,13 @@ class ObjectMgr
         {
             NpcTextLocaleMap::const_iterator itr = mNpcTextLocaleMap.find(entry);
             if (itr == mNpcTextLocaleMap.end()) return nullptr;
+            return &itr->second;
+        }
+
+        BroadcastText const* GetBroadcastText(uint32 entry) const
+        {
+            auto itr = m_broadcastTextMap.find(entry);
+            if (itr == m_broadcastTextMap.end()) return nullptr;
             return &itr->second;
         }
 
@@ -1275,6 +1359,9 @@ class ObjectMgr
         void LoadGossipMenuItems(std::set<uint32>& gossipScriptSet);
 
         MailLevelRewardMap m_mailLevelRewardMap;
+        WorldSafeLocsEntry const* GetClosestGraveyardHelper(
+                GraveYardMapBounds bounds, float x, float y, float z,
+                uint32 mapId, Team team) const;
 
         typedef std::map<uint32, PetLevelInfo*> PetLevelInfoMap;
         // PetLevelInfoMap[creature_id][level]
@@ -1334,6 +1421,8 @@ class ObjectMgr
         CacheVendorItemMap m_mCacheVendorItemMap;
         CacheTrainerSpellMap m_mCacheTrainerTemplateSpellMap;
         CacheTrainerSpellMap m_mCacheTrainerSpellMap;
+
+        BroadcastTextMap m_broadcastTextMap;
 };
 
 #define sObjectMgr MaNGOS::Singleton<ObjectMgr>::Instance()

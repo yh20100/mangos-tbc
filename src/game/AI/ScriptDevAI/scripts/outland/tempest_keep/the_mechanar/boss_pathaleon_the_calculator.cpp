@@ -21,7 +21,7 @@ SDComment: Timers may need update.
 SDCategory: Tempest Keep, The Mechanar
 EndScriptData */
 
-#include "AI/ScriptDevAI/include/precompiled.h"
+#include "AI/ScriptDevAI/include/sc_common.h"
 #include "mechanar.h"
 
 enum
@@ -220,7 +220,7 @@ struct mob_nether_wraithAI : public ScriptedAI
         m_uiArcaneMissilesTimer = urand(1000, 4000);
     }
 
-    void JustDied(Unit* killer) override
+    void JustDied(Unit* /*killer*/) override
     {
         m_creature->CastSpell(nullptr, SPELL_DETONATION, TRIGGERED_OLD_TRIGGERED);
     }

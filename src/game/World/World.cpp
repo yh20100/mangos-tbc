@@ -569,6 +569,7 @@ void World::LoadConfigSettings(bool reload)
         m_timers[WUPDATE_UPTIME].Reset();
     }
 
+    setConfig(CONFIG_UINT32_NUM_MAP_THREADS, "MapUpdate.Threads", 3);
     setConfig(CONFIG_UINT32_SKILL_CHANCE_ORANGE, "SkillChance.Orange", 100);
     setConfig(CONFIG_UINT32_SKILL_CHANCE_YELLOW, "SkillChance.Yellow", 75);
     setConfig(CONFIG_UINT32_SKILL_CHANCE_GREEN,  "SkillChance.Green",  25);
@@ -704,6 +705,8 @@ void World::LoadConfigSettings(bool reload)
 
     setConfig(CONFIG_BOOL_PET_UNSUMMON_AT_MOUNT,      "PetUnsummonAtMount", false);
     setConfig(CONFIG_BOOL_PET_ATTACK_FROM_BEHIND,     "PetAttackFromBehind", true);
+
+    setConfig(CONFIG_BOOL_AUTO_DOWNRANK,              "AutoDownrank", true);
 
     m_relocation_ai_notify_delay = sConfig.GetIntDefault("Visibility.AIRelocationNotifyDelay", 1000u);
     m_relocation_lower_limit_sq = pow(sConfig.GetFloatDefault("Visibility.RelocationLowerLimit", 10), 2);
@@ -862,6 +865,13 @@ void World::SetInitialWorldSettings()
     sLog.outString("Loading faction_store...");
     sObjectMgr.LoadFactions();
 
+    // Load before npc_text, gossip_menu_option, script_texts, creature_ai_texts, dbscript_string
+    sLog.outString("Loading broadcast_text...");
+    sObjectMgr.LoadBroadcastText();
+
+    sLog.outString("Loading world safe locs ...");
+    sObjectMgr.LoadWorldSafeLocs();
+    
     ///- Load the DBC files
     sLog.outString("Initialize DBC data stores...");
     LoadDBCStores(m_dataPath);
@@ -1199,6 +1209,7 @@ void World::SetInitialWorldSettings()
     sObjectMgr.LoadPointOfInterestLocales();                // must be after POI loading
     sObjectMgr.LoadQuestgiverGreetingLocales();
     sObjectMgr.LoadTrainerGreetingLocales();                // must be after CreatureInfo loading
+    sObjectMgr.LoadBroadcastTextLocales();
     sLog.outString(">>> Localization strings loaded");
     sLog.outString();
 
@@ -1238,6 +1249,10 @@ void World::SetInitialWorldSettings()
     sLog.outString("Initializing Scripting Library...");
     sScriptDevAIMgr.Initialize();
     sLog.outString();
+
+    // after SD2
+    sLog.outString("Loading spell scripts...");
+    SpellScriptMgr::LoadScripts();
 
     ///- Initialize game time and timers
     sLog.outString("Initialize game time and timers");
@@ -1297,7 +1312,7 @@ void World::SetInitialWorldSettings()
     sMapMgr.LoadTransports();
 
     sLog.outString("Deleting expired bans...");
-    LoginDatabase.Execute("DELETE FROM ip_banned WHERE unbandate<=UNIX_TIMESTAMP() AND unbandate<>bandate");
+    LoginDatabase.Execute("DELETE FROM ip_banned WHERE expires_at<=UNIX_TIMESTAMP() AND expires_at<>banned_at");
     sLog.outString();
 
     sLog.outString("Calculate next daily quest reset time...");
@@ -1681,6 +1696,29 @@ void World::SendDefenseMessage(uint32 zoneId, int32 textId)
     }
 }
 
+void World::SendDefenseMessageBroadcastText(uint32 zoneId, uint32 textId)
+{
+    for (SessionMap::const_iterator itr = m_sessions.begin(); itr != m_sessions.end(); ++itr)
+    {
+        if (WorldSession* session = itr->second)
+        {
+            Player* player = session->GetPlayer();
+            if (player && player->IsInWorld() && !player->GetMap()->Instanceable())
+            {
+                BroadcastText const* bct = sObjectMgr.GetBroadcastText(textId);
+                std::string const& message = bct->GetText(session->GetSessionDbLocaleIndex());
+                uint32 messageLength = message.size() + 1;
+
+                WorldPacket data(SMSG_DEFENSE_MESSAGE, 4 + 4 + messageLength);
+                data << uint32(zoneId);
+                data << uint32(messageLength);
+                data << message;
+                session->SendPacket(data);
+            }
+        }
+    }
+}
+
 /// Kick (and save) all players
 void World::KickAll()
 {
@@ -1699,6 +1737,29 @@ void World::KickAllLess(AccountTypes sec)
         if (WorldSession* session = itr->second)
             if (session->GetSecurity() < sec)
                 session->KickPlayer();
+}
+
+void World::WarnAccount(uint32 accountId, std::string from, std::string reason, const char* type)
+{
+    LoginDatabase.escape_string(from);
+    reason = std::string(type) + ": " + reason;
+    LoginDatabase.escape_string(reason);
+
+    LoginDatabase.PExecute("INSERT INTO account_banned (account_id, banned_at, expires_at, banned_by, reason, active) VALUES ('%u', UNIX_TIMESTAMP(), UNIX_TIMESTAMP()+1, '%s', '%s', '0')",
+        accountId, from.c_str(), reason.c_str());
+}
+
+BanReturn World::BanAccount(WorldSession *session, uint32 duration_secs, const std::string& reason, const std::string& author)
+{
+    if (duration_secs)
+        LoginDatabase.PExecute("INSERT INTO account_banned(account_id, banned_at, expires_at, banned_by, reason, active) VALUES ('%u', UNIX_TIMESTAMP(), UNIX_TIMESTAMP()+%u, '%s', '%s', '1')",
+            session->GetAccountId(), duration_secs, author.c_str(), reason.c_str());
+    else
+        LoginDatabase.PExecute("INSERT INTO account_banned(account_id, banned_at, expires_at, banned_by, reason, active) VALUES ('%u', UNIX_TIMESTAMP(), 0, '%s', '%s', '1')",
+            session->GetAccountId(), author.c_str(), reason.c_str());
+
+    session->KickPlayer();
+    return BAN_SUCCESS;
 }
 
 /// Ban an account or ban an IP address, duration_secs if it is positive used, otherwise permban
@@ -1748,7 +1809,7 @@ BanReturn World::BanAccount(BanMode mode, std::string nameOrIP, uint32 duration_
         if (mode != BAN_IP)
         {
             // No SQL injection as strings are escaped
-            LoginDatabase.PExecute("INSERT INTO account_banned VALUES ('%u', UNIX_TIMESTAMP(), UNIX_TIMESTAMP()+%u, '%s', '%s', '1')",
+            LoginDatabase.PExecute("INSERT INTO account_banned(account_id, banned_at, expires_at, banned_by, reason, active) VALUES ('%u', UNIX_TIMESTAMP(), UNIX_TIMESTAMP()+%u, '%s', '%s', '1')",
                                    account, duration_secs, safe_author.c_str(), reason.c_str());
         }
 
@@ -1763,7 +1824,7 @@ BanReturn World::BanAccount(BanMode mode, std::string nameOrIP, uint32 duration_
 }
 
 /// Remove a ban from an account or IP address
-bool World::RemoveBanAccount(BanMode mode, std::string nameOrIP)
+bool World::RemoveBanAccount(BanMode mode, const std::string& source, const std::string& message, std::string nameOrIP)
 {
     if (mode == BAN_IP)
     {
@@ -1782,7 +1843,8 @@ bool World::RemoveBanAccount(BanMode mode, std::string nameOrIP)
             return false;
 
         // NO SQL injection as account is uint32
-        LoginDatabase.PExecute("UPDATE account_banned SET active = '0' WHERE id = '%u'", account);
+        LoginDatabase.PExecute("UPDATE account_banned SET active = '0', unbanned_at = UNIX_TIMESTAMP(), unbanned_by = '%s' WHERE account_id = '%u'", source.data(), account);
+        WarnAccount(account, source, message, "UNBAN");
     }
     return true;
 }
@@ -2153,13 +2215,13 @@ void World::LoadSpamRecords(bool reload)
         if (reload)
             m_spamRecords.clear();
 
-        while (result->NextRow())
+        do
         {
             Field* fields = result->Fetch();
             std::string record = fields[0].GetCppString();
 
             m_spamRecords.push_back(record);
-        }
+        } while (result->NextRow());
 
         delete result;
     }
@@ -2410,4 +2472,11 @@ void World::InvalidatePlayerDataToAllClient(ObjectGuid guid) const
     WorldPacket data(SMSG_INVALIDATE_PLAYER, 8);
     data << guid;
     SendGlobalMessage(data);
+}
+
+void World::UpdateSessionExpansion(uint8 expansion)
+{
+    for (auto& data : m_sessions)
+        if (data.second->GetSecurity() < SEC_GAMEMASTER)
+            data.second->SetExpansion(expansion);
 }

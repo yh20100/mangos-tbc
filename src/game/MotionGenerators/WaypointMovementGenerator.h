@@ -28,6 +28,7 @@
 #include "MotionGenerators/MovementGenerator.h"
 #include "MotionGenerators/WaypointManager.h"
 #include "Server/DBCStructure.h"
+#include "Entities/Object.h"
 
 #include <set>
 
@@ -64,7 +65,8 @@ class WaypointMovementGenerator<Creature>
       public PathMovementBase<Creature, WaypointPath const*>
 {
     public:
-        WaypointMovementGenerator(Creature&) : i_nextMoveTime(0), m_isArrivalDone(false), m_lastReachedWaypoint(0), m_pathId(0), m_PathOrigin()
+        WaypointMovementGenerator(Creature&) :
+            i_nextMoveTime(0), m_isArrivalDone(false), m_lastReachedWaypoint(0), m_pathId(0), m_PathOrigin(), m_nextNodeSplineIdx(-1)
         {}
         ~WaypointMovementGenerator() { i_path = nullptr; }
         void Initialize(Creature& creature);
@@ -97,28 +99,12 @@ class WaypointMovementGenerator<Creature>
 
         ShortTimeTracker i_nextMoveTime;
         bool m_isArrivalDone;
+        int32 m_nextNodeSplineIdx;
         uint32 m_lastReachedWaypoint;
+        WorldLocation m_resetPoint;
 
         uint32 m_pathId;
         WaypointPathOrigin m_PathOrigin;
-};
-
-/** TaxiMovementGenerator generates movement of the player for the paths
- * and hence generates ground and activities for the player.
- */
-class TaxiMovementGenerator
-    : public MovementGeneratorMedium< Player, TaxiMovementGenerator >
-{
-    public:
-        void Initialize(Player&);
-        void Finalize(Player&);
-        void Interrupt(Player&);
-        void Reset(Player&);
-        bool Update(Player&, const uint32&);
-
-        MovementGeneratorType GetMovementGeneratorType() const override { return TAXI_MOTION_TYPE; }
-
-        bool Resume(Player& player) const;
 };
 
 #endif

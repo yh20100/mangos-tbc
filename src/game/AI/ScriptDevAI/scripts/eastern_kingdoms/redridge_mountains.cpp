@@ -24,7 +24,7 @@ EndScriptData */
 /* ContentData
 npc_corporal_keeshan */
 
-#include "AI/ScriptDevAI/include/precompiled.h"
+#include "AI/ScriptDevAI/include/sc_common.h"
 #include "AI/ScriptDevAI/base/escort_ai.h"
 
 /*######
@@ -89,6 +89,9 @@ struct npc_corporal_keeshan_escortAI : public npc_escortAI
             case 26:                                        // break outside
                 m_creature->SetStandState(UNIT_STAND_STATE_SIT);
                 DoScriptText(SAY_CORPORAL_KEESHAN_2, m_creature);
+                break;
+            case 37:
+                SetRun(true);                               // run now until the destination
                 break;
             case 53:                                        // quest_complete
                 DoScriptText(SAY_CORPORAL_KEESHAN_4, m_creature);

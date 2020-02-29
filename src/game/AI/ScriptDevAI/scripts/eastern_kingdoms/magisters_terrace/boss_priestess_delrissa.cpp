@@ -21,7 +21,7 @@ SDComment: Script handles Delrissa and her companions AI. They need special PvP-
 SDCategory: Magister's Terrace
 EndScriptData */
 
-#include "AI/ScriptDevAI/include/precompiled.h"
+#include "AI/ScriptDevAI/include/sc_common.h"
 #include "magisters_terrace.h"
 #include "AI/ScriptDevAI/base/CombatAI.h"
 
@@ -127,7 +127,7 @@ struct boss_priestess_delrissaAI : public CombatAI
             m_instance->SetData(TYPE_DELRISSA, IN_PROGRESS);
     }
 
-    void JustPreventedDeath(Unit* attacker) override
+    void JustPreventedDeath(Unit* /*attacker*/) override
     {
         DoFakeDeath(SPELL_PERMANENT_FEIGN_DEATH);
         if (m_summonsKilled >= 4)
@@ -187,7 +187,7 @@ struct boss_priestess_delrissaAI : public CombatAI
             m_playersKilled = 0;
     }
 
-    void SummonedCreatureJustDied(Creature* summoned) override
+    void SummonedCreatureJustDied(Creature* /*summoned*/) override
     {
         ++m_summonsKilled;
         if (m_summonsKilled >= 4)
@@ -210,7 +210,7 @@ struct boss_priestess_delrissaAI : public CombatAI
 
     virtual void ExecuteActions() override
     {
-        if (!m_creature->isAlive() || m_creature->IsEvadingHome() || (m_unit->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_SILENCED) && m_unit->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PACIFIED)) ||
+        if (!m_creature->isAlive() || m_creature->GetCombatManager().IsEvadingHome() || (m_unit->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_SILENCED) && m_unit->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PACIFIED)) ||
             m_unit->hasUnitState(UNIT_STAT_PROPELLED | UNIT_STAT_RETREATING) || m_unit->IsNonMeleeSpellCasted(false))
             return; // custom condition due to her medallion - TODO: resolve globally
 
@@ -335,7 +335,7 @@ struct priestess_companion_commonAI : public CombatAI
 
     virtual void ExecuteActions() override
     {
-        if (!m_creature->isAlive() || m_creature->IsEvadingHome() || (m_unit->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_SILENCED) && m_unit->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PACIFIED)) ||
+        if (!m_creature->isAlive() || m_creature->GetCombatManager().IsEvadingHome() || (m_unit->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_SILENCED) && m_unit->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PACIFIED)) ||
             m_unit->hasUnitState(UNIT_STAT_PROPELLED | UNIT_STAT_RETREATING) || m_unit->IsNonMeleeSpellCasted(false))
             return; // custom condition due to medallion - TODO: resolve globally
 

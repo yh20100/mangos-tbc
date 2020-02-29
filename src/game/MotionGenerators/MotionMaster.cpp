@@ -19,6 +19,7 @@
 #include "MotionGenerators/MotionMaster.h"
 #include "HomeMovementGenerator.h"
 #include "IdleMovementGenerator.h"
+#include "MotionGenerators/PathMovementGenerator.h"
 #include "MotionGenerators/PointMovementGenerator.h"
 #include "MotionGenerators/RandomMovementGenerator.h"
 #include "MotionGenerators/TargetedMovementGenerator.h"
@@ -233,7 +234,7 @@ void MotionMaster::MoveIdle()
         push(&si_idleMovement);
 }
 
-void MotionMaster::MoveRandomAroundPoint(float x, float y, float z, float radius, float verticalZ)
+void MotionMaster::MoveRandomAroundPoint(float x, float y, float z, float radius, float verticalZ, uint32 timer)
 {
     if (m_owner->GetTypeId() == TYPEID_PLAYER)
     {
@@ -242,7 +243,10 @@ void MotionMaster::MoveRandomAroundPoint(float x, float y, float z, float radius
     else
     {
         DEBUG_FILTER_LOG(LOG_FILTER_AI_AND_MOVEGENSS, "%s move random.", m_owner->GetGuidStr().c_str());
-        Mutate(new WanderMovementGenerator(x, y, z, radius, verticalZ));
+        if (timer)
+            Mutate(new TimedWanderMovementGenerator(timer, x, y, z, radius, verticalZ));
+        else
+            Mutate(new WanderMovementGenerator(x, y, z, radius, verticalZ));
     }
 }
 
@@ -358,6 +362,63 @@ void MotionMaster::MovePoint(uint32 id, float x, float y, float z, float o, bool
     Mutate(new PointMovementGenerator(id, x, y, z, o, generatePath, forcedMovement));
 }
 
+void MotionMaster::MovePointTOL(uint32 id, float x, float y, float z, bool takeOff, ForcedMovement forcedMovement/* = FORCED_MOVEMENT_NONE*/)
+{
+    DEBUG_FILTER_LOG(LOG_FILTER_AI_AND_MOVEGENSS, "%s targeted point for %s (Id: %u X: %f Y: %f Z: %f)", m_owner->GetGuidStr().c_str(), takeOff ? "liftoff" : "landing", id, x, y, z);
+    Mutate(new PointTOLMovementGenerator(id, x, y, z, takeOff, forcedMovement));
+}
+
+void MotionMaster::MovePath(std::vector<G3D::Vector3>& path, ForcedMovement forcedMovement, bool flying)
+{
+    return MovePath(path, 0, forcedMovement, flying);
+}
+
+void MotionMaster::MovePath(std::vector<G3D::Vector3>& path, float o, ForcedMovement forcedMovement, bool flying)
+{
+    if (path.empty())
+        return;
+
+    const auto& dest = path.back();
+    const float x = dest.x, y = dest.y, z = dest.z;
+
+    if (o != 0.f)
+        DEBUG_FILTER_LOG(LOG_FILTER_AI_AND_MOVEGENSS, "%s follows a pre-calculated path to X: %f Y: %f Z: %f O: %f", m_owner->GetGuidStr().c_str(), x, y, z, o);
+    else
+        DEBUG_FILTER_LOG(LOG_FILTER_AI_AND_MOVEGENSS, "%s follows a pre-calculated path to X: %f Y: %f Z: %f", m_owner->GetGuidStr().c_str(), x, y, z);
+
+    Mutate(new FixedPathMovementGenerator(path, o, forcedMovement, flying));
+}
+
+void MotionMaster::MovePath(WaypointPath& path, ForcedMovement forcedMovement, bool flying)
+{
+    if (path.empty())
+        return;
+
+    if (path.begin()->first != 0)
+    {
+        sLog.outError("%s attempts to follow a pre-calculated path with unusual indexing: first waypoint at %i", m_owner->GetGuidStr().c_str(), path.begin()->first);
+        return;
+    }
+
+    const auto& finish = path.rbegin();
+    auto& dest = finish->second;
+
+    for (auto itr = path.begin(); itr != path.end(); ++itr)
+    {
+        if ((*itr).first > (*finish).first)
+            dest = ((*itr).second);
+    }
+
+    const float x = dest.x, y = dest.y, z = dest.z, o = dest.orientation;
+
+    if (o != 0.f)
+        DEBUG_FILTER_LOG(LOG_FILTER_AI_AND_MOVEGENSS, "%s follows a pre-calculated path using waypoints to X: %f Y: %f Z: %f O: %f", m_owner->GetGuidStr().c_str(), x, y, z, o);
+    else
+        DEBUG_FILTER_LOG(LOG_FILTER_AI_AND_MOVEGENSS, "%s follows a pre-calculated path using waypoints to X: %f Y: %f Z: %f", m_owner->GetGuidStr().c_str(), x, y, z);
+
+    Mutate(new FixedPathMovementGenerator(path, forcedMovement, flying));
+}
+
 void MotionMaster::MoveRetreat(float x, float y, float z, float o, uint32 delay)
 {
     DEBUG_FILTER_LOG(LOG_FILTER_AI_AND_MOVEGENSS, "%s retreats for assistance (X: %f Y: %f Z: %f)", m_owner->GetGuidStr().c_str(), x, y, z);
@@ -401,35 +462,23 @@ void MotionMaster::MoveWaypoint(uint32 pathId /*=0*/, uint32 source /*=0==PATH_N
     }
 }
 
-void MotionMaster::MoveTaxiFlight()
+void MotionMaster::MoveTaxi()
 {
-    if (m_owner->GetMotionMaster()->GetCurrentMovementGeneratorType() == TAXI_MOTION_TYPE)
+    if (m_owner->GetTypeId() == TYPEID_UNIT)
     {
-        if (m_owner->GetTypeId() == TYPEID_PLAYER)
-        {
-            auto flightMGen = static_cast<TaxiMovementGenerator const*>(m_owner->GetMotionMaster()->GetCurrent());
-            flightMGen->Resume(*static_cast<Player*>(m_owner));
-            return;
-        }
-
-        do
-        {
-            // remove this generator from stack
-            m_owner->GetMotionMaster()->MovementExpired(false);
-        }
-        while (m_owner->GetMotionMaster()->GetCurrentMovementGeneratorType() == TAXI_MOTION_TYPE);
-
         sLog.outError("%s can't be in taxi flight", m_owner->GetGuidStr().c_str());
         return;
     }
 
-    if (m_owner->GetTypeId() == TYPEID_PLAYER)
+    if (GetCurrentMovementGeneratorType() == TAXI_MOTION_TYPE)
     {
-        DEBUG_FILTER_LOG(LOG_FILTER_AI_AND_MOVEGENSS, "%s is now in taxi flight", m_owner->GetGuidStr().c_str());
-        Mutate(new TaxiMovementGenerator());
+        static_cast<TaxiMovementGenerator*>(top())->Resume(*m_owner);
+        return;
     }
-    else
-        sLog.outError("%s can't be in taxi flight", m_owner->GetGuidStr().c_str());
+
+    DEBUG_FILTER_LOG(LOG_FILTER_AI_AND_MOVEGENSS, "%s is now in taxi flight", m_owner->GetGuidStr().c_str());
+
+    Mutate(new TaxiMovementGenerator());
 }
 
 void MotionMaster::MoveDistract(uint32 timer)
@@ -439,16 +488,7 @@ void MotionMaster::MoveDistract(uint32 timer)
     Mutate(mgen);
 }
 
-void MotionMaster::MoveFlyOrLand(uint32 id, float x, float y, float z, bool liftOff)
-{
-    if (m_owner->GetTypeId() != TYPEID_UNIT)
-        return;
-
-    DEBUG_FILTER_LOG(LOG_FILTER_AI_AND_MOVEGENSS, "%s targeted point for %s (Id: %u X: %f Y: %f Z: %f)", m_owner->GetGuidStr().c_str(), liftOff ? "liftoff" : "landing", id, x, y, z);
-    Mutate(new FlyOrLandMovementGenerator(id, x, y, z, liftOff));
-}
-
-void MotionMaster::MoveCharge(float x, float y, float z, float speed, uint32 id/*= EVENT_CHARGE*/)
+void MotionMaster::MoveCharge(float x, float y, float z, float speed, uint32 id/* = EVENT_CHARGE*/)
 {
     if (m_owner->hasUnitState(UNIT_STAT_NO_FREE_MOVE))
         return;
@@ -457,6 +497,23 @@ void MotionMaster::MoveCharge(float x, float y, float z, float speed, uint32 id/
     init.SetWalk(false);
     init.SetVelocity(speed);
     init.MoveTo(x, y, z, true);
+
+    Mutate(new EffectMovementGenerator(init, id, false));
+}
+
+void MotionMaster::MoveCharge(Unit& target, float speed, uint32 id/* = EVENT_CHARGE*/)
+{
+    if (m_owner->hasUnitState(UNIT_STAT_NO_FREE_MOVE))
+        return;
+
+    WorldLocation pos;
+    target.GetFirstCollisionPosition(pos, target.GetCombatReach(), target.GetAngle(m_owner));
+
+    Movement::MoveSplineInit init(*m_owner);
+    init.SetWalk(false);
+    init.SetVelocity(speed);
+    init.SetFacing(&target);
+    init.MoveTo(pos.coord_x, pos.coord_y, pos.coord_z, true);
 
     Mutate(new EffectMovementGenerator(init, id, false));
 }

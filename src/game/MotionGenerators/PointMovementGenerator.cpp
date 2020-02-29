@@ -17,12 +17,11 @@
  */
 
 #include "MotionGenerators/PointMovementGenerator.h"
-#include "Entities/Creature.h"
-#include "AI/BaseAI/UnitAI.h"
-#include "Entities/TemporarySpawn.h"
-#include "World/World.h"
 #include "Movement/MoveSpline.h"
 #include "Movement/MoveSplineInit.h"
+#include "Entities/Creature.h"
+#include "Entities/TemporarySpawn.h"
+#include "AI/BaseAI/UnitAI.h"
 
 //----- Point Movement Generator
 
@@ -65,14 +64,14 @@ void PointMovementGenerator::Finalize(Unit& unit)
 
 void PointMovementGenerator::Interrupt(Unit& unit)
 {
-    unit.InterruptMoving();
     unit.clearUnitState(UNIT_STAT_ROAMING | UNIT_STAT_ROAMING_MOVE);
+    unit.InterruptMoving();
 }
 
 void PointMovementGenerator::Reset(Unit& unit)
 {
-    unit.StopMoving();
-    unit.addUnitState(UNIT_STAT_ROAMING | UNIT_STAT_ROAMING_MOVE);
+    unit.addUnitState(UNIT_STAT_ROAMING);
+    Initialize(unit);
 }
 
 bool PointMovementGenerator::Update(Unit& unit, const uint32&/* diff*/)
@@ -95,6 +94,8 @@ void PointMovementGenerator::Move(Unit& unit)
     init.MoveTo(m_x, m_y, m_z, m_generatePath);
     if (m_forcedMovement == FORCED_MOVEMENT_WALK)
         init.SetWalk(true);
+    if (m_forcedMovement == FORCED_MOVEMENT_FLIGHT)
+        init.SetFly();
     if (m_o != 0.f)
         init.SetFacing(m_o);
     init.SetVelocity(m_speed);
@@ -205,10 +206,10 @@ bool StayMovementGenerator::Update(Unit& unit, const uint32& diff)
     return true;
 }
 
-void FlyOrLandMovementGenerator::Move(Unit& unit)
+void PointTOLMovementGenerator::Move(Unit& unit)
 {
     Movement::MoveSplineInit init(unit);
-    init.MoveTo(m_x, m_y, m_z, m_generatePath);
+    init.MoveTo(m_x, m_y, m_z, false);
     if (m_forcedMovement == FORCED_MOVEMENT_WALK)
         init.SetWalk(true);
     if (m_o != 0.f)
